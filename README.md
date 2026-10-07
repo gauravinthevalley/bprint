@@ -20,6 +20,7 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+npm run db:migrate
 npm start
 ```
 
@@ -31,17 +32,28 @@ For isolated development or test runs, set `TRIPS_DATA_FILE` to an alternate JSO
 
 > **Important:** JSON persistence is for local development only. Vercel functions do not provide a durable, shared writable filesystem. Records written this way can disappear between deployments or function invocations and are not safe across multiple server instances.
 
-The pages, forms, receipt, and server actions do not access the JSON file directly. They use the `TripRepository` operations (`getTrips`, `getTrip`, `createTrip`, and `updateTrip`). To add persistent production storage, implement the same interface with Postgres, Neon, Supabase, or another durable service, then replace the exported repository instance. No form or receipt component needs to change.
+The pages, forms, receipt, and server actions do not access the JSON file directly. They use the `TripRepository` operations (`getTrips`, `getTrip`, `createTrip`, and `updateTrip`). When `DATABASE_URL` exists, the application selects the Neon implementation automatically. Local development continues to use JSON when that variable is absent.
+
+On Vercel, `DATABASE_URL` is required. The application fails with a clear configuration error rather than attempting to write to Vercel's read-only application filesystem.
 
 ## Deploying to Vercel
 
-1. Push the project to a Git provider.
-2. Import the repository in Vercel as a Next.js project.
-3. Confirm the build command is `npm run build`.
-4. Before using the deployment for real records, configure a durable database and switch the repository implementation.
-5. Add database credentials as Vercel environment variables and run any provider-specific migrations.
+1. Open the Vercel project and select **Storage → Create Database → Neon**.
+2. Create a Vercel-managed Neon database and connect it to the `bprint` project.
+3. Enable **Production** and **Preview**, mark the integration as required, and enable a Neon branch for Preview deployments.
+4. Confirm that the integration provides `DATABASE_URL` to both environments. Never commit its value.
+5. Redeploy the project. `vercel.json` runs `npm run db:migrate` before the Next.js build, creating the table on the environment's Neon branch.
 
-The application can be previewed on Vercel with the JSON repository, but saved data must be considered temporary until a durable repository is configured.
+The migration in `database/001_create_trips.sql` is idempotent, so it can run for every deployment. Preview branches are isolated from production and inherit the production schema at branch creation.
+
+To use Neon locally, copy `.env.example` to `.env.local`, add a Neon connection string, and run:
+
+```bash
+npm run db:migrate
+npm run dev
+```
+
+Without `DATABASE_URL`, local development uses `data/trips.json`; deployed Vercel environments never fall back to JSON.
 
 ## Printing
 

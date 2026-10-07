@@ -3,7 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { JsonTripRepository } from "@/lib/trip-repository";
+import { createTripRepository, JsonTripRepository } from "@/lib/trip-repository";
+import { NeonTripRepository, type SqlQuery } from "@/lib/neon-trip-repository";
 import type { TripInput } from "@/types/trip";
 
 const temporaryDirectories: string[] = [];
@@ -72,5 +73,26 @@ describe("JsonTripRepository", () => {
     const setup = await repository();
     expect(await setup.repository.getTrip("missing")).toBeNull();
     expect(await setup.repository.updateTrip("missing", input)).toBeNull();
+  });
+});
+
+describe("repository selection", () => {
+  it("selects Neon when DATABASE_URL is configured", () => {
+    const query: SqlQuery = async () => [];
+    const selected = createTripRepository({
+      databaseUrl: "postgresql://example.invalid/database",
+      neonQuery: query,
+    });
+    expect(selected).toBeInstanceOf(NeonTripRepository);
+  });
+
+  it("uses JSON locally and rejects a Vercel deployment without Neon", async () => {
+    const setup = await repository();
+    expect(
+      createTripRepository({ databaseUrl: "", isVercel: false, jsonFilePath: setup.filePath }),
+    ).toBeInstanceOf(JsonTripRepository);
+    expect(() => createTripRepository({ databaseUrl: "", isVercel: true })).toThrow(
+      "DATABASE_URL is required on Vercel",
+    );
   });
 });

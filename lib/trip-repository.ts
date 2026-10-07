@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { createNeonQuery, NeonTripRepository, type SqlQuery } from "@/lib/neon-trip-repository";
 import { authoritativeNetFare } from "@/lib/trip-validation";
 import type { CreateTripInput, Trip, UpdateTripInput } from "@/types/trip";
 
@@ -116,12 +117,36 @@ export class JsonTripRepository implements TripRepository {
   }
 }
 
-const localDataPath = process.env.TRIPS_DATA_FILE ?? path.join(process.cwd(), "data", "trips.json");
-const localRepository = new JsonTripRepository(localDataPath);
+interface RepositoryOptions {
+  databaseUrl?: string;
+  isVercel?: boolean;
+  jsonFilePath?: string;
+  neonQuery?: SqlQuery;
+}
 
-// Swap this instance for a Postgres/Neon/Supabase implementation in production.
-// Components and server actions intentionally depend only on these operations.
-export const tripRepository: TripRepository = localRepository;
+export function createTripRepository(options: RepositoryOptions = {}): TripRepository {
+  const databaseUrl = options.databaseUrl ?? process.env.DATABASE_URL;
+  if (databaseUrl) {
+    return new NeonTripRepository(options.neonQuery ?? createNeonQuery(databaseUrl));
+  }
+
+  const isVercel = options.isVercel ?? process.env.VERCEL === "1";
+  if (isVercel) {
+    throw new Error(
+      "DATABASE_URL is required on Vercel. Connect the Neon integration before deploying.",
+    );
+  }
+
+  const jsonFilePath =
+    options.jsonFilePath ??
+    process.env.TRIPS_DATA_FILE ??
+    path.join(process.cwd(), "data", "trips.json");
+  return new JsonTripRepository(jsonFilePath);
+}
+
+// Local development uses JSON by default. Vercel must provide DATABASE_URL through Neon.
+// Components and server actions continue to depend only on the repository interface.
+export const tripRepository: TripRepository = createTripRepository();
 
 export const getTrips = () => tripRepository.getTrips();
 export const getTrip = (id: string) => tripRepository.getTrip(id);
