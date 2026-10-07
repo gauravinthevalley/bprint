@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
+import { deleteTripAction } from "@/app/trip-actions";
 import { formatCurrency, formatDistance, formatListDate } from "@/lib/formatting";
 import type { Trip } from "@/types/trip";
 
@@ -12,6 +13,9 @@ const columns = ["Date", "Passenger", "Pickup", "Drop Off", "Distance", "Net Far
 export function TripList({ trips }: { trips: Trip[] }) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletePending, startDeleteTransition] = useTransition();
   const selectAllRef = useRef<HTMLInputElement>(null);
   const allSelected = trips.length > 0 && selectedIds.size === trips.length;
 
@@ -55,6 +59,25 @@ export function TripList({ trips }: { trips: Trip[] }) {
     router.push(`/trips/print?ids=${encodeURIComponent(orderedIds.join(","))}`);
   }
 
+  function confirmDelete(id: string) {
+    setDeleteError(null);
+    startDeleteTransition(async () => {
+      const result = await deleteTripAction(id);
+      if (!result.success) {
+        setDeleteError(result.error ?? "The trip could not be deleted.");
+        return;
+      }
+
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      setConfirmingDeleteId(null);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -78,6 +101,11 @@ export function TripList({ trips }: { trips: Trip[] }) {
           </Link>
         </div>
       </div>
+      {deleteError && (
+        <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {deleteError}
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[960px] border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
@@ -122,17 +150,58 @@ export function TripList({ trips }: { trips: Trip[] }) {
                   {formatCurrency(trip.netFare)}
                 </td>
                 <td className="whitespace-nowrap px-4 py-4">
-                  <div className="flex gap-3">
-                    <Link className="font-semibold text-slate-800 hover:underline" href={`/trips/${trip.id}`}>
-                      View
-                    </Link>
-                    <Link
-                      className="font-semibold text-slate-600 hover:underline"
-                      href={`/trips/print?ids=${trip.id}`}
-                    >
-                      Print
-                    </Link>
-                  </div>
+                  {confirmingDeleteId === trip.id ? (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-700">Delete?</span>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingDeleteId(null)}
+                        disabled={deletePending}
+                        className="font-semibold text-slate-600 hover:underline disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => confirmDelete(trip.id)}
+                        disabled={deletePending}
+                        className="font-semibold text-red-700 hover:underline disabled:opacity-50"
+                      >
+                        {deletePending ? "Deleting…" : "Confirm"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <Link
+                        className="font-semibold text-slate-800 hover:underline"
+                        href={`/trips/${trip.id}`}
+                      >
+                        View
+                      </Link>
+                      <Link
+                        className="font-semibold text-slate-600 hover:underline"
+                        href={`/trips/${trip.id}/edit`}
+                      >
+                        Edit
+                      </Link>
+                      <Link
+                        className="font-semibold text-slate-600 hover:underline"
+                        href={`/trips/print?ids=${trip.id}`}
+                      >
+                        Print
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteError(null);
+                          setConfirmingDeleteId(trip.id);
+                        }}
+                        className="font-semibold text-red-700 hover:underline"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

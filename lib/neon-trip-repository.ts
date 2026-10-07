@@ -188,4 +188,14 @@ export class NeonTripRepository implements TripRepository {
     `;
     return rows[0] ? mapTripRow(rows[0]) : null;
   }
+
+  async deleteTrip(id: string): Promise<boolean> {
+    if (!uuidPattern.test(id)) return false;
+    const rows = await this.sql`
+      DELETE FROM trips
+      WHERE id = ${id}
+      RETURNING id::text AS id
+    `;
+    return rows.length > 0;
+  }
 }

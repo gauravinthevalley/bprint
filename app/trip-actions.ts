@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { createTrip, updateTrip } from "@/lib/trip-repository";
+import { createTrip, deleteTrip, updateTrip } from "@/lib/trip-repository";
 import { validateTripForm, type TripField } from "@/lib/trip-validation";
 
 export interface TripFormState {
@@ -57,4 +57,23 @@ export async function updateTripAction(
   revalidatePath("/trips");
   revalidatePath(`/trips/${id}`);
   redirect(`/trips/${id}`);
+}
+
+export interface DeleteTripResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function deleteTripAction(id: string): Promise<DeleteTripResult> {
+  try {
+    const deleted = await deleteTrip(id);
+    if (!deleted) return { success: false, error: "This trip no longer exists." };
+  } catch (error) {
+    console.error("Unable to delete trip", error);
+    return { success: false, error: "The trip could not be deleted. Please try again." };
+  }
+
+  revalidatePath("/trips");
+  revalidatePath(`/trips/${id}`);
+  return { success: true };
 }

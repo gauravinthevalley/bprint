@@ -96,6 +96,21 @@ describe("NeonTripRepository", () => {
     expect(await new NeonTripRepository(query).updateTrip(id, input)).toBeNull();
   });
 
+  it("deletes trips through a parameterized query", async () => {
+    const query = queryReturning([{ id }]);
+    const repository = new NeonTripRepository(query);
+    expect(await repository.deleteTrip(id)).toBe(true);
+    expect(query).toHaveBeenCalledOnce();
+  });
+
+  it("does not query for malformed delete ids and reports missing rows", async () => {
+    const query = queryReturning([]);
+    const repository = new NeonTripRepository(query);
+    expect(await repository.deleteTrip("not-a-uuid")).toBe(false);
+    expect(query).not.toHaveBeenCalled();
+    expect(await repository.deleteTrip(id)).toBe(false);
+  });
+
   it("maps legacy rows without a fare per KM", () => {
     expect(mapTripRow({ ...databaseRow, farePerKm: null, netFare: "2185.00" }).farePerKm).toBeNull();
   });

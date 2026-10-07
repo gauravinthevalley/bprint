@@ -91,6 +91,16 @@ describe("JsonTripRepository", () => {
     expect(await setup.repository.getTrip("missing")).toBeNull();
     expect(await setup.repository.updateTrip("missing", input)).toBeNull();
   });
+
+  it("deletes a saved trip and reports missing records", async () => {
+    const setup = await repository();
+    const created = await setup.repository.createTrip(input);
+
+    expect(await setup.repository.deleteTrip(created.id)).toBe(true);
+    expect(await setup.repository.getTrip(created.id)).toBeNull();
+    expect(await setup.repository.deleteTrip(created.id)).toBe(false);
+    expect(JSON.parse(await readFile(setup.filePath, "utf8"))).toEqual([]);
+  });
 });
 
 describe("repository selection", () => {
