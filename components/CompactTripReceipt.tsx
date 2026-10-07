@@ -28,9 +28,7 @@ export function CompactTripReceipt({ trip }: { trip: Trip }) {
       </header>
 
       <div className="compact-receipt-body">
-        <p className="compact-date">
-          {formatReceiptDate(trip.date)}{trip.time ? `, ${trip.time}` : ""}
-        </p>
+        <p className="compact-date">{formatReceiptDate(trip.date)}</p>
         <dl className="compact-two-column">
           <CompactDetail label="Driver" value={trip.driverName} />
           <CompactDetail label="Taxi No." value={trip.taxiNumber} />

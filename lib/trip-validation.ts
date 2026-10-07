@@ -1,4 +1,4 @@
-import { calculateNetFare } from "@/lib/formatting";
+import { calculateDistanceFare, calculateNetFare } from "@/lib/formatting";
 import { PAYMENT_METHODS, type TripInput } from "@/types/trip";
 
 export type TripField = keyof TripInput;
@@ -18,8 +18,8 @@ const requiredFields: Array<[TripField, string]> = [
 
 const numberFields: Array<[TripField, boolean]> = [
   ["distanceKm", true],
+  ["farePerKm", true],
   ["baseFare", false],
-  ["distanceFare", false],
   ["timeCharge", false],
   ["permitCharge", false],
 ];
@@ -73,7 +73,12 @@ export function validateTripForm(formData: FormData): TripValidationResult {
   for (const [field, required] of numberFields) {
     const raw = stringValue(formData, field);
     if (required && raw === "") {
-      fieldErrors[field] = field === "distanceKm" ? "Distance is required." : "This field is required.";
+      fieldErrors[field] =
+        field === "distanceKm"
+          ? "Distance is required."
+          : field === "farePerKm"
+            ? "Fare per KM is required."
+            : "This field is required.";
       continue;
     }
     const value = raw === "" ? 0 : Number(raw);
@@ -84,26 +89,28 @@ export function validateTripForm(formData: FormData): TripValidationResult {
 
   if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
 
-  const fares = {
-    baseFare: numbers.baseFare ?? 0,
-    distanceFare: numbers.distanceFare ?? 0,
-    timeCharge: numbers.timeCharge ?? 0,
-    permitCharge: numbers.permitCharge ?? 0,
-  };
-
   return {
     fieldErrors,
     data: {
       ...text,
       paymentMethod: text.paymentMethod as TripInput["paymentMethod"],
       distanceKm: numbers.distanceKm ?? 0,
-      ...fares,
-      // Assigned here only to keep all numeric normalization together; the repository
-      // still calculates and stores the authoritative net fare.
+      farePerKm: numbers.farePerKm ?? 0,
+      baseFare: numbers.baseFare ?? 0,
+      timeCharge: numbers.timeCharge ?? 0,
+      permitCharge: numbers.permitCharge ?? 0,
     },
   };
 }
 
 export function authoritativeNetFare(input: TripInput): number {
-  return calculateNetFare(input);
+  return calculateNetFare({
+    distanceFare: authoritativeDistanceFare(input),
+    timeCharge: input.timeCharge,
+    permitCharge: input.permitCharge,
+  });
+}
+
+export function authoritativeDistanceFare(input: TripInput): number {
+  return calculateDistanceFare(input);
 }

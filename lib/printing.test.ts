@@ -18,6 +18,7 @@ function trip(id: string): Trip {
     dropoffTime: "09:00",
     paymentMethod: "Cash",
     distanceKm: 10,
+    farePerKm: 55,
     baseFare: 100,
     distanceFare: 500,
     timeCharge: 0,

@@ -23,11 +23,12 @@ const databaseRow: Record<string, unknown> = {
   dropoffTime: "09:11:00",
   paymentMethod: "Cash",
   distanceKm: "11.30",
-  baseFare: "125.00",
-  distanceFare: "1700.00",
+  farePerKm: "55.00",
+  baseFare: "80.00",
+  distanceFare: "701.50",
   timeCharge: "200.00",
   permitCharge: "160.00",
-  netFare: "2185.00",
+  netFare: "1061.50",
   createdAt: "2026-03-23T02:35:00.000Z",
   updatedAt: new Date("2026-03-23T02:35:00.000Z"),
 };
@@ -45,8 +46,8 @@ const input: TripInput = {
   dropoffTime: "09:11",
   paymentMethod: "Cash",
   distanceKm: 11.3,
-  baseFare: 125,
-  distanceFare: 1700,
+  farePerKm: 55,
+  baseFare: 80,
   timeCharge: 200,
   permitCharge: 160,
 };
@@ -59,7 +60,8 @@ describe("NeonTripRepository", () => {
   it("maps Postgres values into the Trip shape", () => {
     const trip = mapTripRow(databaseRow);
     expect(trip.distanceKm).toBe(11.3);
-    expect(trip.netFare).toBe(2185);
+    expect(trip.farePerKm).toBe(55);
+    expect(trip.netFare).toBe(1061.5);
     expect(trip.time).toBe("08:20");
     expect(trip.updatedAt).toBe("2026-03-23T02:35:00.000Z");
   });
@@ -84,7 +86,7 @@ describe("NeonTripRepository", () => {
   it("creates and updates trips through parameterized queries", async () => {
     const query = queryReturning([databaseRow]);
     const repository = new NeonTripRepository(query);
-    expect((await repository.createTrip(input)).netFare).toBe(2185);
+    expect((await repository.createTrip(input)).netFare).toBe(1061.5);
     expect((await repository.updateTrip(id, input))?.id).toBe(id);
     expect(query).toHaveBeenCalledTimes(2);
   });
@@ -92,5 +94,9 @@ describe("NeonTripRepository", () => {
   it("returns null when an update finds no record", async () => {
     const query = queryReturning([]);
     expect(await new NeonTripRepository(query).updateTrip(id, input)).toBeNull();
+  });
+
+  it("maps legacy rows without a fare per KM", () => {
+    expect(mapTripRow({ ...databaseRow, farePerKm: null, netFare: "2185.00" }).farePerKm).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -22,8 +22,8 @@ const input: TripInput = {
   dropoffTime: "09:11",
   paymentMethod: "Cash",
   distanceKm: 11.3,
-  baseFare: 125,
-  distanceFare: 1700,
+  farePerKm: 55,
+  baseFare: 80,
   timeCharge: 200,
   permitCharge: 160,
 };
@@ -48,7 +48,8 @@ describe("JsonTripRepository", () => {
 
     expect(created.id).toBeTruthy();
     expect(created.tripId).toMatch(/^[A-F0-9]{6}$/);
-    expect(created.netFare).toBe(2185);
+    expect(created.distanceFare).toBe(701.5);
+    expect(created.netFare).toBe(1061.5);
     expect(await setup.repository.getTrip(created.id)).toEqual(created);
     expect(JSON.parse(await readFile(setup.filePath, "utf8"))).toHaveLength(1);
   });
@@ -66,7 +67,23 @@ describe("JsonTripRepository", () => {
     expect(updated?.id).toBe(created.id);
     expect(updated?.createdAt).toBe(created.createdAt);
     expect(updated?.passengerName).toBe("Updated Passenger");
-    expect(updated?.netFare).toBe(2260);
+    expect(updated?.distanceFare).toBe(821.5);
+    expect(updated?.netFare).toBe(1181.5);
+  });
+
+  it("loads legacy JSON trips without changing their historical fares", async () => {
+    const setup = await repository();
+    const created = await setup.repository.createTrip(input);
+    const [stored] = JSON.parse(await readFile(setup.filePath, "utf8"));
+    delete stored.farePerKm;
+    stored.distanceFare = 1700;
+    stored.netFare = 2185;
+    await writeFile(setup.filePath, `${JSON.stringify([stored], null, 2)}\n`, "utf8");
+
+    const legacyTrip = await setup.repository.getTrip(created.id);
+    expect(legacyTrip?.farePerKm).toBeNull();
+    expect(legacyTrip?.distanceFare).toBe(1700);
+    expect(legacyTrip?.netFare).toBe(2185);
   });
 
   it("returns null for an unknown trip", async () => {

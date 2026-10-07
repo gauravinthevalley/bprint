@@ -26,11 +26,27 @@ export function formatDistance(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 }
 
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+export function calculateDistanceFare({
+  baseFare,
+  distanceKm,
+  farePerKm,
+}: {
+  baseFare: number;
+  distanceKm: number;
+  farePerKm: number;
+}): number {
+  return roundCurrency(baseFare + distanceKm * farePerKm);
+}
+
 export function calculateNetFare(
   fares: Pick<
-    { baseFare: number; distanceFare: number; timeCharge: number; permitCharge: number },
-    "baseFare" | "distanceFare" | "timeCharge" | "permitCharge"
+    { distanceFare: number; timeCharge: number; permitCharge: number },
+    "distanceFare" | "timeCharge" | "permitCharge"
   >,
 ): number {
-  return fares.baseFare + fares.distanceFare + fares.timeCharge + fares.permitCharge;
+  return roundCurrency(fares.distanceFare + fares.timeCharge + fares.permitCharge);
 }

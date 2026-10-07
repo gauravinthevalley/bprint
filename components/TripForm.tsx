@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 
 import type { TripFormState } from "@/app/trip-actions";
-import { formatCurrency } from "@/lib/formatting";
+import { calculateDistanceFare, calculateNetFare, formatCurrency } from "@/lib/formatting";
 import { PAYMENT_METHODS, type Trip } from "@/types/trip";
 
 type FormAction = (state: TripFormState, formData: FormData) => Promise<TripFormState>;
-type FareField = "baseFare" | "distanceFare" | "timeCharge" | "permitCharge";
+type EditableFareField = "baseFare" | "timeCharge" | "permitCharge";
 
 interface TripFormProps {
   action: FormAction;
@@ -16,9 +16,7 @@ interface TripFormProps {
   defaultDate?: string;
 }
 
-const fareLabels: Array<[FareField, string]> = [
-  ["baseFare", "Base Fare"],
-  ["distanceFare", "Distance Fare"],
+const chargeLabels: Array<[EditableFareField, string]> = [
   ["timeCharge", "Time Charge"],
   ["permitCharge", "Permit Charge"],
 ];
@@ -89,16 +87,33 @@ function TextInput({
 
 export function TripForm({ action, trip, defaultDate }: TripFormProps) {
   const [state, formAction, pending] = useActionState(action, { fieldErrors: {} });
-  const [fares, setFares] = useState<Record<FareField, string>>({
-    baseFare: String(trip?.baseFare ?? 0),
-    distanceFare: String(trip?.distanceFare ?? 0),
+  const [distanceKm, setDistanceKm] = useState(String(trip?.distanceKm ?? ""));
+  const [farePerKm, setFarePerKm] = useState(
+    trip?.farePerKm == null ? "55.00" : String(trip.farePerKm),
+  );
+  const [fares, setFares] = useState<Record<EditableFareField, string>>({
+    baseFare: trip ? String(trip.baseFare) : "80",
     timeCharge: String(trip?.timeCharge ?? 0),
     permitCharge: String(trip?.permitCharge ?? 0),
   });
 
+  const distanceFare = useMemo(
+    () =>
+      calculateDistanceFare({
+        baseFare: Number(fares.baseFare) || 0,
+        distanceKm: Number(distanceKm) || 0,
+        farePerKm: Number(farePerKm) || 0,
+      }),
+    [distanceKm, farePerKm, fares.baseFare],
+  );
   const netFare = useMemo(
-    () => Object.values(fares).reduce((sum, value) => sum + (Number(value) || 0), 0),
-    [fares],
+    () =>
+      calculateNetFare({
+        distanceFare,
+        timeCharge: Number(fares.timeCharge) || 0,
+        permitCharge: Number(fares.permitCharge) || 0,
+      }),
+    [distanceFare, fares.permitCharge, fares.timeCharge],
   );
   const cancelHref = trip ? `/trips/${trip.id}` : "/trips";
 
@@ -111,6 +126,7 @@ export function TripForm({ action, trip, defaultDate }: TripFormProps) {
       )}
 
       <FormSection title="Trip Information">
+        <input type="hidden" name="time" defaultValue={trip?.time ?? ""} />
         <TextInput
           name="date"
           label="Date"
@@ -119,7 +135,6 @@ export function TripForm({ action, trip, defaultDate }: TripFormProps) {
           defaultValue={trip?.date ?? defaultDate}
           error={state.fieldErrors.date}
         />
-        <TextInput name="time" label="Time" type="time" defaultValue={trip?.time} error={state.fieldErrors.time} />
         <TextInput
           name="tripId"
           label="Trip ID"
@@ -188,16 +203,38 @@ export function TripForm({ action, trip, defaultDate }: TripFormProps) {
           required
           fullWidth
         />
-        <TextInput
-          name="distanceKm"
-          label="Distance (km)"
-          type="number"
-          step="0.01"
-          min="0"
-          defaultValue={trip?.distanceKm}
-          error={state.fieldErrors.distanceKm}
-          required
-        />
+        <label>
+          <span className="form-label">Distance (km) <span aria-hidden="true">*</span></span>
+          <input
+            className={`form-input${state.fieldErrors.distanceKm ? " form-input-error" : ""}`}
+            type="number"
+            name="distanceKm"
+            value={distanceKm}
+            onChange={(event) => setDistanceKm(event.target.value)}
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            required
+            aria-invalid={Boolean(state.fieldErrors.distanceKm)}
+          />
+          <FieldError message={state.fieldErrors.distanceKm} />
+        </label>
+        <label>
+          <span className="form-label">Fare per KM (Rs.) <span aria-hidden="true">*</span></span>
+          <input
+            className={`form-input${state.fieldErrors.farePerKm ? " form-input-error" : ""}`}
+            type="number"
+            name="farePerKm"
+            value={farePerKm}
+            onChange={(event) => setFarePerKm(event.target.value)}
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            required
+            aria-invalid={Boolean(state.fieldErrors.farePerKm)}
+          />
+          <FieldError message={state.fieldErrors.farePerKm} />
+        </label>
       </FormSection>
 
       <FormSection title="Payment">
@@ -217,7 +254,37 @@ export function TripForm({ action, trip, defaultDate }: TripFormProps) {
       </FormSection>
 
       <FormSection title="Fare">
-        {fareLabels.map(([name, label]) => (
+        <label>
+          <span className="form-label">Base Fare (Rs.)</span>
+          <input
+            className={`form-input${state.fieldErrors.baseFare ? " form-input-error" : ""}`}
+            type="number"
+            name="baseFare"
+            value={fares.baseFare}
+            onChange={(event) =>
+              setFares((current) => ({ ...current, baseFare: event.target.value }))
+            }
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            aria-invalid={Boolean(state.fieldErrors.baseFare)}
+          />
+          <FieldError message={state.fieldErrors.baseFare} />
+        </label>
+        <label>
+          <span className="form-label">Distance Fare (Rs.)</span>
+          <input
+            className="form-input bg-slate-100 text-slate-700"
+            type="text"
+            value={distanceFare.toFixed(2)}
+            readOnly
+            aria-describedby="distance-fare-help"
+          />
+          <span id="distance-fare-help" className="mt-1.5 block text-xs text-slate-500">
+            Base Fare + Distance × Fare per KM
+          </span>
+        </label>
+        {chargeLabels.map(([name, label]) => (
           <label key={name}>
             <span className="form-label">{label} (Rs.)</span>
             <input
@@ -225,7 +292,9 @@ export function TripForm({ action, trip, defaultDate }: TripFormProps) {
               type="number"
               name={name}
               value={fares[name]}
-              onChange={(event) => setFares((current) => ({ ...current, [name]: event.target.value }))}
+              onChange={(event) =>
+                setFares((current) => ({ ...current, [name]: event.target.value }))
+              }
               min="0"
               step="0.01"
               inputMode="decimal"

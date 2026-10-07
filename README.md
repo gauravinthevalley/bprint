@@ -44,7 +44,7 @@ On Vercel, `DATABASE_URL` is required. The application fails with a clear config
 4. Confirm that the integration provides `DATABASE_URL` to both environments. Never commit its value.
 5. Redeploy the project. `vercel.json` runs `npm run db:migrate` before the Next.js build, creating the table on the environment's Neon branch.
 
-The migration in `database/001_create_trips.sql` is idempotent, so it can run for every deployment. Preview branches are isolated from production and inherit the production schema at branch creation.
+Database migrations in `database/` run in filename order and are recorded in the `bprint_schema_migrations` table, so each migration is applied once. Preview branches are isolated from production and inherit the production schema at branch creation.
 
 To use Neon locally, copy `.env.example` to `.env.local`, add a Neon connection string, and run:
 

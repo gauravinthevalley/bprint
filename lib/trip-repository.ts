@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { createNeonQuery, NeonTripRepository, type SqlQuery } from "@/lib/neon-trip-repository";
-import { authoritativeNetFare } from "@/lib/trip-validation";
+import { authoritativeDistanceFare, authoritativeNetFare } from "@/lib/trip-validation";
 import type { CreateTripInput, Trip, UpdateTripInput } from "@/types/trip";
 
 export interface TripRepository {
@@ -36,6 +36,7 @@ export class JsonTripRepository implements TripRepository {
         ...input,
         id: randomUUID(),
         tripId: input.tripId || this.generateTripId(trips),
+        distanceFare: authoritativeDistanceFare(input),
         netFare: authoritativeNetFare(input),
         createdAt: now,
         updatedAt: now,
@@ -57,6 +58,7 @@ export class JsonTripRepository implements TripRepository {
         ...input,
         id: current.id,
         tripId: input.tripId || current.tripId || this.generateTripId(trips),
+        distanceFare: authoritativeDistanceFare(input),
         netFare: authoritativeNetFare(input),
         createdAt: current.createdAt,
         updatedAt: new Date().toISOString(),
@@ -84,7 +86,10 @@ export class JsonTripRepository implements TripRepository {
     if (!Array.isArray(parsed)) {
       throw new Error(`Trip data at ${this.filePath} must contain a JSON array.`);
     }
-    return parsed as Trip[];
+    return (parsed as Array<Trip & { farePerKm?: number | null }>).map((trip) => ({
+      ...trip,
+      farePerKm: typeof trip.farePerKm === "number" ? trip.farePerKm : null,
+    }));
   }
 
   private async writeTrips(trips: Trip[]): Promise<void> {

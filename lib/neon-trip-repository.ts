@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 
 import type { TripRepository } from "@/lib/trip-repository";
+import { authoritativeDistanceFare } from "@/lib/trip-validation";
 import type { CreateTripInput, Trip, UpdateTripInput } from "@/types/trip";
 
 export type SqlQuery = (
@@ -27,6 +28,10 @@ function numberValue(value: unknown): number {
   return number;
 }
 
+function nullableNumberValue(value: unknown): number | null {
+  return value == null ? null : numberValue(value);
+}
+
 function timestampValue(value: unknown): string {
   if (value instanceof Date) return value.toISOString();
   const date = new Date(stringValue(value));
@@ -49,6 +54,7 @@ export function mapTripRow(row: Record<string, unknown>): Trip {
     dropoffTime: stringValue(row.dropoffTime).slice(0, 5),
     paymentMethod: stringValue(row.paymentMethod) as Trip["paymentMethod"],
     distanceKm: numberValue(row.distanceKm),
+    farePerKm: nullableNumberValue(row.farePerKm),
     baseFare: numberValue(row.baseFare),
     distanceFare: numberValue(row.distanceFare),
     timeCharge: numberValue(row.timeCharge),
@@ -78,6 +84,7 @@ export class NeonTripRepository implements TripRepository {
         dropoff_time::text AS "dropoffTime",
         payment_method AS "paymentMethod",
         distance_km AS "distanceKm",
+        fare_per_km AS "farePerKm",
         base_fare AS "baseFare",
         distance_fare AS "distanceFare",
         time_charge AS "timeCharge",
@@ -108,6 +115,7 @@ export class NeonTripRepository implements TripRepository {
         dropoff_time::text AS "dropoffTime",
         payment_method AS "paymentMethod",
         distance_km AS "distanceKm",
+        fare_per_km AS "farePerKm",
         base_fare AS "baseFare",
         distance_fare AS "distanceFare",
         time_charge AS "timeCharge",
@@ -125,16 +133,17 @@ export class NeonTripRepository implements TripRepository {
   async createTrip(input: CreateTripInput): Promise<Trip> {
     const id = randomUUID();
     const tripId = input.tripId || randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase();
+    const distanceFare = authoritativeDistanceFare(input);
     const rows = await this.sql`
       INSERT INTO trips (
         id, trip_id, date, time, driver_name, taxi_number, passenger_name,
         pickup_location, pickup_time, dropoff_location, dropoff_time,
-        payment_method, distance_km, base_fare, distance_fare, time_charge, permit_charge
+        payment_method, distance_km, fare_per_km, base_fare, distance_fare, time_charge, permit_charge
       ) VALUES (
         ${id}, ${tripId}, ${input.date}, ${input.time || null}, ${input.driverName},
         ${input.taxiNumber}, ${input.passengerName}, ${input.pickupLocation},
         ${input.pickupTime || null}, ${input.dropoffLocation}, ${input.dropoffTime || null},
-        ${input.paymentMethod}, ${input.distanceKm}, ${input.baseFare}, ${input.distanceFare},
+        ${input.paymentMethod}, ${input.distanceKm}, ${input.farePerKm}, ${input.baseFare}, ${distanceFare},
         ${input.timeCharge}, ${input.permitCharge}
       )
       RETURNING
@@ -143,7 +152,7 @@ export class NeonTripRepository implements TripRepository {
         passenger_name AS "passengerName", pickup_location AS "pickupLocation",
         pickup_time::text AS "pickupTime", dropoff_location AS "dropoffLocation",
         dropoff_time::text AS "dropoffTime", payment_method AS "paymentMethod",
-        distance_km AS "distanceKm", base_fare AS "baseFare",
+        distance_km AS "distanceKm", fare_per_km AS "farePerKm", base_fare AS "baseFare",
         distance_fare AS "distanceFare", time_charge AS "timeCharge",
         permit_charge AS "permitCharge", net_fare AS "netFare",
         created_at AS "createdAt", updated_at AS "updatedAt"
@@ -154,6 +163,7 @@ export class NeonTripRepository implements TripRepository {
 
   async updateTrip(id: string, input: UpdateTripInput): Promise<Trip | null> {
     if (!uuidPattern.test(id)) return null;
+    const distanceFare = authoritativeDistanceFare(input);
     const rows = await this.sql`
       UPDATE trips SET
         trip_id = ${input.tripId}, date = ${input.date}, time = ${input.time || null},
@@ -161,8 +171,8 @@ export class NeonTripRepository implements TripRepository {
         passenger_name = ${input.passengerName}, pickup_location = ${input.pickupLocation},
         pickup_time = ${input.pickupTime || null}, dropoff_location = ${input.dropoffLocation},
         dropoff_time = ${input.dropoffTime || null}, payment_method = ${input.paymentMethod},
-        distance_km = ${input.distanceKm}, base_fare = ${input.baseFare},
-        distance_fare = ${input.distanceFare}, time_charge = ${input.timeCharge},
+        distance_km = ${input.distanceKm}, fare_per_km = ${input.farePerKm},
+        base_fare = ${input.baseFare}, distance_fare = ${distanceFare}, time_charge = ${input.timeCharge},
         permit_charge = ${input.permitCharge}, updated_at = now()
       WHERE id = ${id}
       RETURNING
@@ -171,7 +181,7 @@ export class NeonTripRepository implements TripRepository {
         passenger_name AS "passengerName", pickup_location AS "pickupLocation",
         pickup_time::text AS "pickupTime", dropoff_location AS "dropoffLocation",
         dropoff_time::text AS "dropoffTime", payment_method AS "paymentMethod",
-        distance_km AS "distanceKm", base_fare AS "baseFare",
+        distance_km AS "distanceKm", fare_per_km AS "farePerKm", base_fare AS "baseFare",
         distance_fare AS "distanceFare", time_charge AS "timeCharge",
         permit_charge AS "permitCharge", net_fare AS "netFare",
         created_at AS "createdAt", updated_at AS "updatedAt"

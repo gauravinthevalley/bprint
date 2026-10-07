@@ -31,9 +31,7 @@ export function TripReceipt({ trip }: { trip: Trip }) {
 
       <section className="receipt-section">
         <h2>Trip Info</h2>
-        <p className="receipt-date">
-          {formatReceiptDate(trip.date)}{trip.time ? `, ${trip.time}` : ""}
-        </p>
+        <p className="receipt-date">{formatReceiptDate(trip.date)}</p>
 
         <dl className="receipt-grid">
           <DetailRow label="Driver" value={trip.driverName} />
