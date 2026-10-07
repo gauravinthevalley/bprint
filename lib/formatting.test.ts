@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateDistanceFare,
   calculateNetFare,
+  calculateReceiptNetFare,
   formatCurrency,
   formatReceiptDate,
 } from "@/lib/formatting";
@@ -21,10 +22,15 @@ describe("formatting", () => {
     expect(calculateDistanceFare({ baseFare: 80, distanceKm: 11.3, farePerKm: 55 })).toBe(701.5);
   });
 
-  it("calculates net fare without counting the base fare twice", () => {
+  it("calculates the saved net fare without adding the base fare again", () => {
     expect(calculateNetFare({ distanceFare: 701.5, timeCharge: 200, permitCharge: 160 })).toBe(
       1061.5,
     );
+  });
+
+  it("adds the base fare only to the displayed receipt total", () => {
+    expect(calculateReceiptNetFare({ baseFare: 80, netFare: 1180 })).toBe(1260);
+    expect(calculateReceiptNetFare({ baseFare: 80, netFare: 1220 })).toBe(1300);
   });
 
   it("rounds calculated money to two decimal places", () => {

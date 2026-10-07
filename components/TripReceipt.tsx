@@ -1,4 +1,9 @@
-import { formatCurrency, formatDistance, formatReceiptDate } from "@/lib/formatting";
+import {
+  calculateReceiptNetFare,
+  formatCurrency,
+  formatDistance,
+  formatReceiptDate,
+} from "@/lib/formatting";
 import type { Trip } from "@/types/trip";
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -57,7 +62,7 @@ export function TripReceipt({ trip }: { trip: Trip }) {
         <FareRow label="Distance" value={trip.distanceFare} />
         <FareRow label="Time Charge" value={trip.timeCharge} />
         <FareRow label="Permit Charge" value={trip.permitCharge} />
-        <FareRow label="Net Fare" value={trip.netFare} total />
+        <FareRow label="Net Fare" value={calculateReceiptNetFare(trip)} total />
       </section>
     </article>
   );

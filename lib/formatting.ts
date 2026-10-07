@@ -50,3 +50,13 @@ export function calculateNetFare(
 ): number {
   return roundCurrency(fares.distanceFare + fares.timeCharge + fares.permitCharge);
 }
+
+export function calculateReceiptNetFare({
+  baseFare,
+  netFare,
+}: {
+  baseFare: number;
+  netFare: number;
+}): number {
+  return roundCurrency(baseFare + netFare);
+}

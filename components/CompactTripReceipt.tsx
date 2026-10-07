@@ -1,4 +1,9 @@
-import { formatCurrency, formatDistance, formatReceiptDate } from "@/lib/formatting";
+import {
+  calculateReceiptNetFare,
+  formatCurrency,
+  formatDistance,
+  formatReceiptDate,
+} from "@/lib/formatting";
 import type { Trip } from "@/types/trip";
 
 function CompactDetail({ label, value }: { label: string; value: string }) {
@@ -57,7 +62,7 @@ export function CompactTripReceipt({ trip }: { trip: Trip }) {
         <CompactFare label="Permit Charge" value={trip.permitCharge} />
         <div className="compact-fare-row compact-net-fare">
           <span>Net Fare</span>
-          <span>{formatCurrency(trip.netFare)}</span>
+          <span>{formatCurrency(calculateReceiptNetFare(trip))}</span>
         </div>
       </div>
     </article>
