@@ -23,18 +23,25 @@ const chargeLabels: Array<[EditableFareField, string]> = [
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="mt-1.5 text-sm text-red-700">{message}</p>;
+  return <p className="mt-1 text-xs text-red-700">{message}</p>;
 }
 
 function FormSection({
   title,
   children,
-}: Readonly<{ title: string; children: React.ReactNode }>) {
+  columns = 2,
+}: Readonly<{ title: string; children: React.ReactNode; columns?: 2 | 3 }>) {
   return (
-    <fieldset className="border-b border-slate-200 pb-8 last:border-0 last:pb-0">
-      <legend className="mb-5 text-base font-semibold text-slate-950">{title}</legend>
-      <div className="grid gap-5 sm:grid-cols-2">{children}</div>
-    </fieldset>
+    <section className="rounded-lg border border-slate-200 bg-slate-50/40 p-4">
+      <h2 className="mb-3 text-sm font-semibold tracking-wide text-slate-900">{title}</h2>
+      <div
+        className={`grid gap-x-4 gap-y-3 sm:grid-cols-2${
+          columns === 3 ? " xl:grid-cols-3" : ""
+        }`}
+      >
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -118,211 +125,204 @@ export function TripForm({ action, trip, defaultDate }: TripFormProps) {
   const cancelHref = trip ? `/trips/${trip.id}` : "/trips";
 
   return (
-    <form action={formAction} className="space-y-8" noValidate>
+    <form action={formAction} className="space-y-4" noValidate>
       {state.formError && (
         <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {state.formError}
         </div>
       )}
 
-      <FormSection title="Trip Information">
-        <input type="hidden" name="time" defaultValue={trip?.time ?? ""} />
-        <TextInput
-          name="date"
-          label="Date"
-          type="date"
-          required
-          defaultValue={trip?.date ?? defaultDate}
-          error={state.fieldErrors.date}
-        />
-        <TextInput
-          name="tripId"
-          label="Trip ID"
-          defaultValue={trip?.tripId}
-          error={state.fieldErrors.tripId}
-          placeholder="Generated automatically if blank"
-          fullWidth
-        />
-      </FormSection>
-
-      <FormSection title="Passenger">
-        <TextInput
-          name="passengerName"
-          label="Passenger Name"
-          defaultValue={trip?.passengerName}
-          error={state.fieldErrors.passengerName}
-          fullWidth
-        />
-      </FormSection>
-
-      <FormSection title="Vehicle / Driver">
-        <TextInput
-          name="driverName"
-          label="Driver Name"
-          defaultValue={trip?.driverName}
-          error={state.fieldErrors.driverName}
-          required
-        />
-        <TextInput
-          name="taxiNumber"
-          label="Taxi / Vehicle Number"
-          defaultValue={trip?.taxiNumber}
-          error={state.fieldErrors.taxiNumber}
-          required
-        />
-      </FormSection>
-
-      <FormSection title="Journey">
-        <TextInput
-          name="pickupLocation"
-          label="Pickup Location"
-          defaultValue={trip?.pickupLocation}
-          error={state.fieldErrors.pickupLocation}
-          required
-          fullWidth
-        />
-        <TextInput
-          name="pickupTime"
-          label="Pickup Time"
-          type="time"
-          defaultValue={trip?.pickupTime}
-          error={state.fieldErrors.pickupTime}
-        />
-        <TextInput
-          name="dropoffTime"
-          label="Drop Off Time"
-          type="time"
-          defaultValue={trip?.dropoffTime}
-          error={state.fieldErrors.dropoffTime}
-        />
-        <TextInput
-          name="dropoffLocation"
-          label="Drop Off Location"
-          defaultValue={trip?.dropoffLocation}
-          error={state.fieldErrors.dropoffLocation}
-          required
-          fullWidth
-        />
-        <label>
-          <span className="form-label">Distance (km) <span aria-hidden="true">*</span></span>
-          <input
-            className={`form-input${state.fieldErrors.distanceKm ? " form-input-error" : ""}`}
-            type="number"
-            name="distanceKm"
-            value={distanceKm}
-            onChange={(event) => setDistanceKm(event.target.value)}
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            required
-            aria-invalid={Boolean(state.fieldErrors.distanceKm)}
-          />
-          <FieldError message={state.fieldErrors.distanceKm} />
-        </label>
-        <label>
-          <span className="form-label">Fare per KM (Rs.) <span aria-hidden="true">*</span></span>
-          <input
-            className={`form-input${state.fieldErrors.farePerKm ? " form-input-error" : ""}`}
-            type="number"
-            name="farePerKm"
-            value={farePerKm}
-            onChange={(event) => setFarePerKm(event.target.value)}
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            required
-            aria-invalid={Boolean(state.fieldErrors.farePerKm)}
-          />
-          <FieldError message={state.fieldErrors.farePerKm} />
-        </label>
-      </FormSection>
-
-      <FormSection title="Payment">
-        <label>
-          <span className="form-label">Payment Method</span>
-          <select
-            className={`form-input${state.fieldErrors.paymentMethod ? " form-input-error" : ""}`}
-            name="paymentMethod"
-            defaultValue={trip?.paymentMethod ?? "Cash"}
-          >
-            {PAYMENT_METHODS.map((method) => (
-              <option key={method}>{method}</option>
-            ))}
-          </select>
-          <FieldError message={state.fieldErrors.paymentMethod} />
-        </label>
-      </FormSection>
-
-      <FormSection title="Fare">
-        <label>
-          <span className="form-label">Base Fare (Rs.)</span>
-          <input
-            className={`form-input${state.fieldErrors.baseFare ? " form-input-error" : ""}`}
-            type="number"
-            name="baseFare"
-            value={fares.baseFare}
-            onChange={(event) =>
-              setFares((current) => ({ ...current, baseFare: event.target.value }))
-            }
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            aria-invalid={Boolean(state.fieldErrors.baseFare)}
-          />
-          <FieldError message={state.fieldErrors.baseFare} />
-        </label>
-        <label>
-          <span className="form-label">Distance Fare (Rs.)</span>
-          <input
-            className="form-input bg-slate-100 text-slate-700"
-            type="text"
-            value={distanceFare.toFixed(2)}
-            readOnly
-            aria-describedby="distance-fare-help"
-          />
-          <span id="distance-fare-help" className="mt-1.5 block text-xs text-slate-500">
-            Base Fare + Distance × Fare per KM
-          </span>
-        </label>
-        {chargeLabels.map(([name, label]) => (
-          <label key={name}>
-            <span className="form-label">{label} (Rs.)</span>
-            <input
-              className={`form-input${state.fieldErrors[name] ? " form-input-error" : ""}`}
-              type="number"
-              name={name}
-              value={fares[name]}
-              onChange={(event) =>
-                setFares((current) => ({ ...current, [name]: event.target.value }))
-              }
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              aria-invalid={Boolean(state.fieldErrors[name])}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,0.85fr)]">
+        <div className="space-y-4">
+          <FormSection title="Trip details" columns={3}>
+            <input type="hidden" name="time" defaultValue={trip?.time ?? ""} />
+            <TextInput
+              name="date"
+              label="Date"
+              type="date"
+              required
+              defaultValue={trip?.date ?? defaultDate}
+              error={state.fieldErrors.date}
             />
-            <FieldError message={state.fieldErrors[name]} />
-          </label>
-        ))}
-        <div className="sm:col-span-2 rounded-lg border border-slate-300 bg-slate-50 px-5 py-4">
-          <p className="text-sm font-medium text-slate-600">Calculated total</p>
-          <p className="mt-1 text-2xl font-bold text-slate-950">Net Fare: {formatCurrency(netFare)}</p>
-        </div>
-      </FormSection>
+            <TextInput
+              name="tripId"
+              label="Trip ID"
+              defaultValue={trip?.tripId}
+              error={state.fieldErrors.tripId}
+              placeholder="Generated if blank"
+            />
+            <TextInput
+              name="passengerName"
+              label="Passenger Name"
+              defaultValue={trip?.passengerName}
+              error={state.fieldErrors.passengerName}
+            />
+            <TextInput
+              name="driverName"
+              label="Driver Name"
+              defaultValue={trip?.driverName}
+              error={state.fieldErrors.driverName}
+              required
+            />
+            <TextInput
+              name="taxiNumber"
+              label="Taxi / Vehicle Number"
+              defaultValue={trip?.taxiNumber}
+              error={state.fieldErrors.taxiNumber}
+              required
+            />
+          </FormSection>
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Link
-          href={cancelHref}
-          className="rounded-md border border-slate-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          Cancel
-        </Link>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {pending ? "Saving…" : trip ? "Save Changes" : "Save Trip"}
-        </button>
+          <FormSection title="Journey">
+            <TextInput
+              name="pickupLocation"
+              label="Pickup Location"
+              defaultValue={trip?.pickupLocation}
+              error={state.fieldErrors.pickupLocation}
+              required
+            />
+            <TextInput
+              name="pickupTime"
+              label="Pickup Time"
+              type="time"
+              defaultValue={trip?.pickupTime}
+              error={state.fieldErrors.pickupTime}
+            />
+            <TextInput
+              name="dropoffLocation"
+              label="Drop Off Location"
+              defaultValue={trip?.dropoffLocation}
+              error={state.fieldErrors.dropoffLocation}
+              required
+            />
+            <TextInput
+              name="dropoffTime"
+              label="Drop Off Time"
+              type="time"
+              defaultValue={trip?.dropoffTime}
+              error={state.fieldErrors.dropoffTime}
+            />
+            <label>
+              <span className="form-label">Distance (km) <span aria-hidden="true">*</span></span>
+              <input
+                className={`form-input${state.fieldErrors.distanceKm ? " form-input-error" : ""}`}
+                type="number"
+                name="distanceKm"
+                value={distanceKm}
+                onChange={(event) => setDistanceKm(event.target.value)}
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                required
+                aria-invalid={Boolean(state.fieldErrors.distanceKm)}
+              />
+              <FieldError message={state.fieldErrors.distanceKm} />
+            </label>
+            <label>
+              <span className="form-label">Fare per KM (Rs.) <span aria-hidden="true">*</span></span>
+              <input
+                className={`form-input${state.fieldErrors.farePerKm ? " form-input-error" : ""}`}
+                type="number"
+                name="farePerKm"
+                value={farePerKm}
+                onChange={(event) => setFarePerKm(event.target.value)}
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                required
+                aria-invalid={Boolean(state.fieldErrors.farePerKm)}
+              />
+              <FieldError message={state.fieldErrors.farePerKm} />
+            </label>
+          </FormSection>
+        </div>
+
+        <div className="space-y-4 lg:sticky lg:top-6">
+          <FormSection title="Payment & fare">
+            <label className="sm:col-span-2">
+              <span className="form-label">Payment Method</span>
+              <select
+                className={`form-input${state.fieldErrors.paymentMethod ? " form-input-error" : ""}`}
+                name="paymentMethod"
+                defaultValue={trip?.paymentMethod ?? "Cash"}
+              >
+                {PAYMENT_METHODS.map((method) => (
+                  <option key={method}>{method}</option>
+                ))}
+              </select>
+              <FieldError message={state.fieldErrors.paymentMethod} />
+            </label>
+            <label>
+              <span className="form-label">Base Fare (Rs.)</span>
+              <input
+                className={`form-input${state.fieldErrors.baseFare ? " form-input-error" : ""}`}
+                type="number"
+                name="baseFare"
+                value={fares.baseFare}
+                onChange={(event) =>
+                  setFares((current) => ({ ...current, baseFare: event.target.value }))
+                }
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                aria-invalid={Boolean(state.fieldErrors.baseFare)}
+              />
+              <FieldError message={state.fieldErrors.baseFare} />
+            </label>
+            <label>
+              <span className="form-label">Distance Fare (Rs.)</span>
+              <input
+                className="form-input bg-slate-100 text-slate-700"
+                type="text"
+                value={distanceFare.toFixed(2)}
+                readOnly
+                aria-describedby="distance-fare-help"
+              />
+              <span id="distance-fare-help" className="mt-1 block text-[11px] text-slate-500">
+                Base + distance × rate
+              </span>
+            </label>
+            {chargeLabels.map(([name, label]) => (
+              <label key={name}>
+                <span className="form-label">{label} (Rs.)</span>
+                <input
+                  className={`form-input${state.fieldErrors[name] ? " form-input-error" : ""}`}
+                  type="number"
+                  name={name}
+                  value={fares[name]}
+                  onChange={(event) =>
+                    setFares((current) => ({ ...current, [name]: event.target.value }))
+                  }
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  aria-invalid={Boolean(state.fieldErrors[name])}
+                />
+                <FieldError message={state.fieldErrors[name]} />
+              </label>
+            ))}
+            <div className="sm:col-span-2 rounded-md border border-slate-300 bg-white px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Net Fare</p>
+              <p className="mt-0.5 text-xl font-bold text-slate-950">{formatCurrency(netFare)}</p>
+            </div>
+          </FormSection>
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Link
+              href={cancelHref}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pending ? "Saving…" : trip ? "Save Changes" : "Save Trip"}
+            </button>
+          </div>
+        </div>
       </div>
     </form>
   );
