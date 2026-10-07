@@ -157,6 +157,144 @@ select {
   font-weight: 700;
 }
 
+.print-preview-scroll {
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+.print-sheets {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  width: max-content;
+  min-width: 100%;
+}
+
+.receipt-sheet {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 3mm;
+  width: 210mm;
+  height: 297mm;
+  padding: 8mm;
+  background: #fff;
+  box-shadow: 0 12px 30px rgb(15 23 42 / 16%);
+}
+
+.six-up-receipt {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.3mm solid #4b5563;
+  padding: 3.5mm;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8pt;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.compact-receipt-heading {
+  margin-bottom: 1.5mm;
+  text-align: center;
+}
+
+.compact-receipt-heading h2 {
+  margin: 0 0 0.7mm;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12pt;
+  font-weight: 600;
+}
+
+.compact-receipt-heading p,
+.compact-date,
+.compact-two-column,
+.compact-details {
+  margin-top: 0;
+}
+
+.compact-receipt-heading p {
+  margin-bottom: 0;
+  font-size: 8pt;
+}
+
+.compact-receipt-body {
+  border-top: 0.25mm solid #6b7280;
+  padding-top: 1.5mm;
+}
+
+.compact-date {
+  margin-bottom: 1.2mm;
+  font-weight: 700;
+}
+
+.compact-two-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1mm 2mm;
+  margin-bottom: 1.1mm;
+}
+
+.compact-details {
+  display: grid;
+  gap: 0.7mm;
+  margin-bottom: 1.1mm;
+}
+
+.compact-detail {
+  min-width: 0;
+}
+
+.compact-detail dt,
+.compact-detail dd {
+  display: inline;
+  margin: 0;
+}
+
+.compact-detail dt {
+  font-weight: 700;
+}
+
+.compact-detail dd {
+  margin-left: 0.8mm;
+}
+
+.compact-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+  border-top: 0.2mm solid #9ca3af;
+  padding-top: 1mm;
+  font-weight: 600;
+}
+
+.compact-fares {
+  margin-top: auto;
+  border-top: 0.25mm solid #6b7280;
+  padding-top: 1.1mm;
+}
+
+.compact-fare-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2mm;
+  padding: 0.35mm 0;
+}
+
+.compact-net-fare {
+  margin-top: 0.7mm;
+  border-top: 0.25mm solid #4b5563;
+  border-bottom: 0.25mm solid #4b5563;
+  padding: 0.8mm 0;
+  font-size: 9pt;
+  font-weight: 700;
+}
+
 @media (max-width: 640px) {
   .trip-receipt {
     min-height: auto;
@@ -171,7 +309,7 @@ select {
 
 @page {
   size: A4;
-  margin: 12mm;
+  margin: 8mm;
 }
 
 @media print {
@@ -215,5 +353,36 @@ select {
   .receipt-fare-row,
   .receipt-detail-row {
     break-inside: avoid;
+  }
+
+  .print-preview-scroll {
+    overflow: visible;
+    padding: 0;
+  }
+
+  .print-sheets {
+    display: block;
+    width: auto;
+    min-width: 0;
+  }
+
+  .receipt-sheet {
+    width: 194mm;
+    height: 281mm;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .receipt-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .six-up-receipt {
+    break-inside: avoid;
+    print-color-adjust: exact;
   }
 }

@@ -57,4 +57,4 @@ Without `DATABASE_URL`, local development uses `data/trips.json`; deployed Verce
 
 ## Printing
 
-Open a saved trip and select **Print Receipt**. The print stylesheet hides application navigation and controls and formats only the receipt for A4 output. Use the browser's **Save as PDF** destination to create a PDF copy.
+Use **Print Receipt** on an individual trip, select rows and choose **Print Selected**, or choose **Print All**. The preview arranges six compact receipts on each A4 sheet in three rows and two columns, reserving blank slots on the final sheet when needed. The print stylesheet hides application navigation and controls. Use the browser's **Save as PDF** destination to create a PDF copy.
