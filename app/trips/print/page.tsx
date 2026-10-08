@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { CompactTripReceipt } from "@/components/CompactTripReceipt";
 import { PrintButton } from "@/components/PrintButton";
+import { requireUser } from "@/lib/auth-session";
 import { createPrintSheets, selectTripsForPrint } from "@/lib/printing";
 import { getTrips } from "@/lib/trip-repository";
 
@@ -13,7 +14,9 @@ interface PrintTripsPageProps {
 
 export default async function PrintTripsPage({ searchParams }: PrintTripsPageProps) {
   const query = await searchParams;
-  const trips = await getTrips();
+  const destination = query.all === "1" ? "/trips/print?all=1" : `/trips/print?ids=${query.ids ?? ""}`;
+  const user = await requireUser(destination);
+  const trips = await getTrips(user.id);
   const selectedTrips = selectTripsForPrint(trips, {
     printAll: query.all === "1",
     ids: query.ids?.split(",") ?? [],

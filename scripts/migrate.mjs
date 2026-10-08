@@ -1,6 +1,13 @@
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 
 import { neon } from "@neondatabase/serverless";
+
+// Next.js loads .env.local automatically, but standalone Node scripts do not.
+// Existing shell/Vercel variables keep precedence over values loaded from this file.
+if (existsSync(".env.local")) {
+  process.loadEnvFile(".env.local");
+}
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { createTripAction } from "@/app/trip-actions";
 import { TripForm } from "@/components/TripForm";
+import { requireUser } from "@/lib/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,9 @@ function localDateToday(): string {
   }).format(new Date());
 }
 
-export default function NewTripPage() {
+export default async function NewTripPage() {
+  await requireUser("/trips/new");
+
   return (
     <div className="mx-auto max-w-6xl">
       <Link href="/trips" className="text-sm font-semibold text-slate-600 hover:text-slate-950 hover:underline">

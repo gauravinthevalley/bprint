@@ -1,17 +1,26 @@
 # Travel Receipts
 
-A small Next.js application for creating, saving, viewing, editing, and printing taxi or travel receipts. It uses the App Router, TypeScript, Tailwind CSS, server actions, and React Server Components where interaction is not required.
+A small Next.js application for creating, saving, viewing, editing, and printing taxi or travel receipts. It uses the App Router, TypeScript, Tailwind CSS, server actions, Better Auth, and Neon Postgres.
 
 ## Install and run locally
 
-Requirements: Node.js 20.9 or newer and npm.
+Requirements: Node.js 20.9 or newer, npm, and a Neon Postgres database.
 
 ```bash
 npm install
+npm run db:migrate
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The home page redirects to `/trips`.
+First copy `.env.example` to `.env.local` and set:
+
+```dotenv
+DATABASE_URL=your-neon-connection-string
+BETTER_AUTH_SECRET=a-random-secret-with-at-least-32-characters
+BETTER_AUTH_URL=http://localhost:3000
+```
+
+Generate a suitable secret with `openssl rand -base64 32`. Open [http://localhost:3000](http://localhost:3000); the home page redirects to `/trips`, where you can create an account or sign in.
 
 Other commands:
 
@@ -24,17 +33,19 @@ npm run db:migrate
 npm start
 ```
 
-## Data storage
+## Authentication and data storage
 
-Trips are stored in `data/trips.json` by the local JSON implementation in `lib/trip-repository.ts`. The file is initialized with an empty array if it does not exist. Writes in one Node.js process are serialized and use a temporary file plus rename to reduce the chance of a partial write.
+Better Auth provides open email/password registration and secure cookie-based sessions. Email verification and password-reset email are intentionally not configured in this initial version. Sessions expire after 180 days and do not use browser local storage. Each repository operation is scoped to the signed-in user, so accounts cannot view, print, edit, or delete one another's trips.
 
-For isolated development or test runs, set `TRIPS_DATA_FILE` to an alternate JSON file path before starting the server.
+Trips and authentication records are stored in Neon whenever `DATABASE_URL` is configured. The pages, forms, receipt components, and server actions do not access storage directly; they use the `TripRepository` abstraction. A future storage implementation can replace `lib/neon-trip-repository.ts` without changing the form or receipt components.
+
+The project retains a local JSON implementation in `lib/trip-repository.ts` for repository development and tests. It initializes `data/trips.json` with an empty array, serializes writes, and uses temporary-file renames. The complete authenticated application requires Postgres because Better Auth stores users and sessions in the database.
+
+For isolated repository test runs, set `TRIPS_DATA_FILE` to an alternate JSON file path.
 
 > **Important:** JSON persistence is for local development only. Vercel functions do not provide a durable, shared writable filesystem. Records written this way can disappear between deployments or function invocations and are not safe across multiple server instances.
 
-The pages, forms, receipt, and server actions do not access the JSON file directly. They use the `TripRepository` operations (`getTrips`, `getTrip`, `createTrip`, and `updateTrip`). When `DATABASE_URL` exists, the application selects the Neon implementation automatically. Local development continues to use JSON when that variable is absent.
-
-On Vercel, `DATABASE_URL` is required. The application fails with a clear configuration error rather than attempting to write to Vercel's read-only application filesystem.
+On Vercel, `DATABASE_URL`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL` are required. The application fails with a clear configuration error rather than attempting to write to Vercel's read-only application filesystem.
 
 ## Deploying to Vercel
 
@@ -42,7 +53,8 @@ On Vercel, `DATABASE_URL` is required. The application fails with a clear config
 2. Create a Vercel-managed Neon database and connect it to the `bprint` project.
 3. Enable **Production** and **Preview**, mark the integration as required, and enable a Neon branch for Preview deployments.
 4. Confirm that the integration provides `DATABASE_URL` to both environments. Never commit its value.
-5. Redeploy the project. `vercel.json` runs `npm run db:migrate` before the Next.js build, creating the table on the environment's Neon branch.
+5. Add `BETTER_AUTH_SECRET` (a separate strong random value per environment) and set `BETTER_AUTH_URL` to the deployment origin, such as `https://bprint-two.vercel.app`. Do not include `/trips` or a trailing path.
+6. Redeploy the project. `vercel.json` runs `npm run db:migrate` before the Next.js build, creating the auth tables and user-owned trips schema on the environment's Neon branch.
 
 Database migrations in `database/` run in filename order and are recorded in the `bprint_schema_migrations` table, so each migration is applied once. Preview branches are isolated from production and inherit the production schema at branch creation.
 
@@ -53,7 +65,9 @@ npm run db:migrate
 npm run dev
 ```
 
-Without `DATABASE_URL`, local development uses `data/trips.json`; deployed Vercel environments never fall back to JSON.
+Migration `003_add_auth_and_trip_ownership.sql` intentionally deletes all trips created before authentication was added, then requires every new trip to belong to a user. Back up production first if those old rows need to be retained.
+
+Registration is intentionally open: anyone who can reach the site can create an account and consume database storage. If that becomes undesirable, disable public sign-up or add an invitation/admin approval check. No transactional email service is needed for the current setup.
 
 ## Printing
 

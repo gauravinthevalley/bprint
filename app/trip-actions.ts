@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { requireUser } from "@/lib/auth-session";
 import {
   createTrip,
   deleteAllTrips,
@@ -21,12 +22,13 @@ export async function createTripAction(
   _previousState: TripFormState,
   formData: FormData,
 ): Promise<TripFormState> {
+  const user = await requireUser();
   const result = validateTripForm(formData);
   if (!result.data) return { fieldErrors: result.fieldErrors };
 
   let trip;
   try {
-    trip = await createTrip(result.data);
+    trip = await createTrip(user.id, result.data);
   } catch (error) {
     console.error("Unable to create trip", error);
     return {
@@ -44,12 +46,13 @@ export async function updateTripAction(
   _previousState: TripFormState,
   formData: FormData,
 ): Promise<TripFormState> {
+  const user = await requireUser();
   const result = validateTripForm(formData);
   if (!result.data) return { fieldErrors: result.fieldErrors };
 
   let trip;
   try {
-    trip = await updateTrip(id, result.data);
+    trip = await updateTrip(user.id, id, result.data);
   } catch (error) {
     console.error("Unable to update trip", error);
     return {
@@ -72,8 +75,9 @@ export interface DeleteTripResult {
 }
 
 export async function deleteTripAction(id: string): Promise<DeleteTripResult> {
+  const user = await requireUser();
   try {
-    const deleted = await deleteTrip(id);
+    const deleted = await deleteTrip(user.id, id);
     if (!deleted) return { success: false, error: "This trip no longer exists." };
   } catch (error) {
     console.error("Unable to delete trip", error);
@@ -86,13 +90,14 @@ export async function deleteTripAction(id: string): Promise<DeleteTripResult> {
 }
 
 export async function deleteSelectedTripsAction(ids: string[]): Promise<DeleteTripResult> {
+  const user = await requireUser();
   const uniqueIds = [...new Set(ids)];
   if (uniqueIds.length === 0) {
     return { success: false, error: "Select at least one trip to delete." };
   }
 
   try {
-    const deletedCount = await deleteTrips(uniqueIds);
+    const deletedCount = await deleteTrips(user.id, uniqueIds);
     revalidatePath("/trips");
     return { success: true, deletedCount };
   } catch (error) {
@@ -102,8 +107,9 @@ export async function deleteSelectedTripsAction(ids: string[]): Promise<DeleteTr
 }
 
 export async function deleteAllTripsAction(): Promise<DeleteTripResult> {
+  const user = await requireUser();
   try {
-    const deletedCount = await deleteAllTrips();
+    const deletedCount = await deleteAllTrips(user.id);
     revalidatePath("/trips");
     return { success: true, deletedCount };
   } catch (error) {

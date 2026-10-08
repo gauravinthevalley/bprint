@@ -68,7 +68,7 @@ export function mapTripRow(row: Record<string, unknown>): Trip {
 export class NeonTripRepository implements TripRepository {
   constructor(private readonly sql: SqlQuery) {}
 
-  async getTrips(): Promise<Trip[]> {
+  async getTrips(userId: string): Promise<Trip[]> {
     const rows = await this.sql`
       SELECT
         id::text AS id,
@@ -93,12 +93,13 @@ export class NeonTripRepository implements TripRepository {
         created_at AS "createdAt",
         updated_at AS "updatedAt"
       FROM trips
+      WHERE user_id = ${userId}
       ORDER BY created_at DESC
     `;
     return rows.map(mapTripRow);
   }
 
-  async getTrip(id: string): Promise<Trip | null> {
+  async getTrip(userId: string, id: string): Promise<Trip | null> {
     if (!uuidPattern.test(id)) return null;
     const rows = await this.sql`
       SELECT
@@ -124,23 +125,23 @@ export class NeonTripRepository implements TripRepository {
         created_at AS "createdAt",
         updated_at AS "updatedAt"
       FROM trips
-      WHERE id = ${id}
+      WHERE id = ${id} AND user_id = ${userId}
       LIMIT 1
     `;
     return rows[0] ? mapTripRow(rows[0]) : null;
   }
 
-  async createTrip(input: CreateTripInput): Promise<Trip> {
+  async createTrip(userId: string, input: CreateTripInput): Promise<Trip> {
     const id = randomUUID();
     const tripId = input.tripId || randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase();
     const distanceFare = authoritativeDistanceFare(input);
     const rows = await this.sql`
       INSERT INTO trips (
-        id, trip_id, date, time, driver_name, taxi_number, passenger_name,
+        id, user_id, trip_id, date, time, driver_name, taxi_number, passenger_name,
         pickup_location, pickup_time, dropoff_location, dropoff_time,
         payment_method, distance_km, fare_per_km, base_fare, distance_fare, time_charge, permit_charge
       ) VALUES (
-        ${id}, ${tripId}, ${input.date}, ${input.time || null}, ${input.driverName},
+        ${id}, ${userId}, ${tripId}, ${input.date}, ${input.time || null}, ${input.driverName},
         ${input.taxiNumber}, ${input.passengerName}, ${input.pickupLocation},
         ${input.pickupTime || null}, ${input.dropoffLocation}, ${input.dropoffTime || null},
         ${input.paymentMethod}, ${input.distanceKm}, ${input.farePerKm}, ${input.baseFare}, ${distanceFare},
@@ -161,7 +162,7 @@ export class NeonTripRepository implements TripRepository {
     return mapTripRow(rows[0]);
   }
 
-  async updateTrip(id: string, input: UpdateTripInput): Promise<Trip | null> {
+  async updateTrip(userId: string, id: string, input: UpdateTripInput): Promise<Trip | null> {
     if (!uuidPattern.test(id)) return null;
     const distanceFare = authoritativeDistanceFare(input);
     const rows = await this.sql`
@@ -174,7 +175,7 @@ export class NeonTripRepository implements TripRepository {
         distance_km = ${input.distanceKm}, fare_per_km = ${input.farePerKm},
         base_fare = ${input.baseFare}, distance_fare = ${distanceFare}, time_charge = ${input.timeCharge},
         permit_charge = ${input.permitCharge}, updated_at = now()
-      WHERE id = ${id}
+      WHERE id = ${id} AND user_id = ${userId}
       RETURNING
         id::text AS id, trip_id AS "tripId", date::text AS date, time::text AS time,
         driver_name AS "driverName", taxi_number AS "taxiNumber",
@@ -189,31 +190,31 @@ export class NeonTripRepository implements TripRepository {
     return rows[0] ? mapTripRow(rows[0]) : null;
   }
 
-  async deleteTrip(id: string): Promise<boolean> {
+  async deleteTrip(userId: string, id: string): Promise<boolean> {
     if (!uuidPattern.test(id)) return false;
     const rows = await this.sql`
       DELETE FROM trips
-      WHERE id = ${id}
+      WHERE id = ${id} AND user_id = ${userId}
       RETURNING id::text AS id
     `;
     return rows.length > 0;
   }
 
-  async deleteTrips(ids: string[]): Promise<number> {
+  async deleteTrips(userId: string, ids: string[]): Promise<number> {
     const validIds = [...new Set(ids)].filter((id) => uuidPattern.test(id));
     if (validIds.length === 0) return 0;
 
     const rows = await this.sql`
       DELETE FROM trips
-      WHERE id = ANY(${validIds}::uuid[])
+      WHERE user_id = ${userId} AND id = ANY(${validIds}::uuid[])
       RETURNING id::text AS id
     `;
     return rows.length;
   }
 
-  async deleteAllTrips(): Promise<number> {
+  async deleteAllTrips(userId: string): Promise<number> {
     const rows = await this.sql`
-      DELETE FROM trips
+      DELETE FROM trips WHERE user_id = ${userId}
       RETURNING id::text AS id
     `;
     return rows.length;

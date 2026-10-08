@@ -1,12 +1,34 @@
 import Link from "next/link";
 
+import { AuthModal } from "@/components/AuthModal";
 import { TripList } from "@/components/TripList";
+import { getCurrentSession } from "@/lib/auth-session";
 import { getTrips } from "@/lib/trip-repository";
 
 export const dynamic = "force-dynamic";
 
-export default async function TripsPage() {
-  const trips = await getTrips();
+export default async function TripsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const session = await getCurrentSession();
+  const query = await searchParams;
+
+  if (!session) {
+    return (
+      <div>
+        <div className="mb-7">
+          <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Receipt records</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">Saved Trips</h1>
+        </div>
+        <div className="h-64 rounded-lg border border-slate-200 bg-white" />
+        <AuthModal next={query.next} />
+      </div>
+    );
+  }
+
+  const trips = await getTrips(session.user.id);
 
   return (
     <div>

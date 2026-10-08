@@ -3,13 +3,15 @@ import { notFound } from "next/navigation";
 
 import { updateTripAction } from "@/app/trip-actions";
 import { TripForm } from "@/components/TripForm";
+import { requireUser } from "@/lib/auth-session";
 import { getTrip } from "@/lib/trip-repository";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditTripPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const trip = await getTrip(id);
+  const user = await requireUser(`/trips/${id}/edit`);
+  const trip = await getTrip(user.id, id);
   if (!trip) notFound();
   const action = updateTripAction.bind(null, trip.id);
 

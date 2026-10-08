@@ -7,13 +7,21 @@ import { authoritativeDistanceFare, authoritativeNetFare } from "@/lib/trip-vali
 import type { CreateTripInput, Trip, UpdateTripInput } from "@/types/trip";
 
 export interface TripRepository {
-  getTrips(): Promise<Trip[]>;
-  getTrip(id: string): Promise<Trip | null>;
-  createTrip(input: CreateTripInput): Promise<Trip>;
-  updateTrip(id: string, input: UpdateTripInput): Promise<Trip | null>;
-  deleteTrip(id: string): Promise<boolean>;
-  deleteTrips(ids: string[]): Promise<number>;
-  deleteAllTrips(): Promise<number>;
+  getTrips(userId: string): Promise<Trip[]>;
+  getTrip(userId: string, id: string): Promise<Trip | null>;
+  createTrip(userId: string, input: CreateTripInput): Promise<Trip>;
+  updateTrip(userId: string, id: string, input: UpdateTripInput): Promise<Trip | null>;
+  deleteTrip(userId: string, id: string): Promise<boolean>;
+  deleteTrips(userId: string, ids: string[]): Promise<number>;
+  deleteAllTrips(userId: string): Promise<number>;
+}
+
+type StoredTrip = Trip & { userId: string };
+
+function withoutOwner(storedTrip: StoredTrip): Trip {
+  const trip: Partial<StoredTrip> = { ...storedTrip };
+  delete trip.userId;
+  return trip as Trip;
 }
 
 export class JsonTripRepository implements TripRepository {
@@ -21,24 +29,29 @@ export class JsonTripRepository implements TripRepository {
 
   constructor(private readonly filePath: string) {}
 
-  async getTrips(): Promise<Trip[]> {
+  async getTrips(userId: string): Promise<Trip[]> {
     const trips = await this.readTrips();
-    return trips.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return trips
+      .filter((trip) => trip.userId === userId)
+      .map(withoutOwner)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  async getTrip(id: string): Promise<Trip | null> {
+  async getTrip(userId: string, id: string): Promise<Trip | null> {
     const trips = await this.readTrips();
-    return trips.find((trip) => trip.id === id) ?? null;
+    const trip = trips.find((candidate) => candidate.userId === userId && candidate.id === id);
+    return trip ? withoutOwner(trip) : null;
   }
 
-  async createTrip(input: CreateTripInput): Promise<Trip> {
+  async createTrip(userId: string, input: CreateTripInput): Promise<Trip> {
     return this.withWriteLock(async () => {
       const trips = await this.readTrips();
       const now = new Date().toISOString();
-      const trip: Trip = {
+      const trip: StoredTrip = {
         ...input,
+        userId,
         id: randomUUID(),
-        tripId: input.tripId || this.generateTripId(trips),
+        tripId: input.tripId || this.generateTripId(trips.filter((trip) => trip.userId === userId)),
         distanceFare: authoritativeDistanceFare(input),
         netFare: authoritativeNetFare(input),
         createdAt: now,
@@ -46,21 +59,25 @@ export class JsonTripRepository implements TripRepository {
       };
       trips.push(trip);
       await this.writeTrips(trips);
-      return trip;
+      return withoutOwner(trip);
     });
   }
 
-  async updateTrip(id: string, input: UpdateTripInput): Promise<Trip | null> {
+  async updateTrip(userId: string, id: string, input: UpdateTripInput): Promise<Trip | null> {
     return this.withWriteLock(async () => {
       const trips = await this.readTrips();
-      const index = trips.findIndex((trip) => trip.id === id);
+      const index = trips.findIndex((trip) => trip.userId === userId && trip.id === id);
       if (index < 0) return null;
 
       const current = trips[index];
-      const updated: Trip = {
+      const updated: StoredTrip = {
         ...input,
+        userId,
         id: current.id,
-        tripId: input.tripId || current.tripId || this.generateTripId(trips),
+        tripId:
+          input.tripId ||
+          current.tripId ||
+          this.generateTripId(trips.filter((trip) => trip.userId === userId)),
         distanceFare: authoritativeDistanceFare(input),
         netFare: authoritativeNetFare(input),
         createdAt: current.createdAt,
@@ -68,14 +85,14 @@ export class JsonTripRepository implements TripRepository {
       };
       trips[index] = updated;
       await this.writeTrips(trips);
-      return updated;
+      return withoutOwner(updated);
     });
   }
 
-  async deleteTrip(id: string): Promise<boolean> {
+  async deleteTrip(userId: string, id: string): Promise<boolean> {
     return this.withWriteLock(async () => {
       const trips = await this.readTrips();
-      const index = trips.findIndex((trip) => trip.id === id);
+      const index = trips.findIndex((trip) => trip.userId === userId && trip.id === id);
       if (index < 0) return false;
 
       trips.splice(index, 1);
@@ -84,24 +101,28 @@ export class JsonTripRepository implements TripRepository {
     });
   }
 
-  async deleteTrips(ids: string[]): Promise<number> {
+  async deleteTrips(userId: string, ids: string[]): Promise<number> {
     const idsToDelete = new Set(ids);
     if (idsToDelete.size === 0) return 0;
 
     return this.withWriteLock(async () => {
       const trips = await this.readTrips();
-      const remainingTrips = trips.filter((trip) => !idsToDelete.has(trip.id));
+      const remainingTrips = trips.filter(
+        (trip) => trip.userId !== userId || !idsToDelete.has(trip.id),
+      );
       const deletedCount = trips.length - remainingTrips.length;
       if (deletedCount > 0) await this.writeTrips(remainingTrips);
       return deletedCount;
     });
   }
 
-  async deleteAllTrips(): Promise<number> {
+  async deleteAllTrips(userId: string): Promise<number> {
     return this.withWriteLock(async () => {
       const trips = await this.readTrips();
-      if (trips.length > 0) await this.writeTrips([]);
-      return trips.length;
+      const remainingTrips = trips.filter((trip) => trip.userId !== userId);
+      const deletedCount = trips.length - remainingTrips.length;
+      if (deletedCount > 0) await this.writeTrips(remainingTrips);
+      return deletedCount;
     });
   }
 
@@ -115,20 +136,20 @@ export class JsonTripRepository implements TripRepository {
     }
   }
 
-  private async readTrips(): Promise<Trip[]> {
+  private async readTrips(): Promise<StoredTrip[]> {
     await this.ensureFile();
     const contents = await readFile(this.filePath, "utf8");
     const parsed: unknown = JSON.parse(contents);
     if (!Array.isArray(parsed)) {
       throw new Error(`Trip data at ${this.filePath} must contain a JSON array.`);
     }
-    return (parsed as Array<Trip & { farePerKm?: number | null }>).map((trip) => ({
+    return (parsed as Array<StoredTrip & { farePerKm?: number | null }>).map((trip) => ({
       ...trip,
       farePerKm: typeof trip.farePerKm === "number" ? trip.farePerKm : null,
     }));
   }
 
-  private async writeTrips(trips: Trip[]): Promise<void> {
+  private async writeTrips(trips: StoredTrip[]): Promise<void> {
     const temporaryPath = `${this.filePath}.${process.pid}.${randomUUID()}.tmp`;
     await writeFile(temporaryPath, `${JSON.stringify(trips, null, 2)}\n`, "utf8");
     await rename(temporaryPath, this.filePath);
@@ -185,15 +206,17 @@ export function createTripRepository(options: RepositoryOptions = {}): TripRepos
   return new JsonTripRepository(jsonFilePath);
 }
 
-// Local development uses JSON by default. Vercel must provide DATABASE_URL through Neon.
-// Components and server actions continue to depend only on the repository interface.
+// The JSON implementation is retained for local repository development and tests.
+// The authenticated application and every Vercel deployment require Neon via DATABASE_URL.
 export const tripRepository: TripRepository = createTripRepository();
 
-export const getTrips = () => tripRepository.getTrips();
-export const getTrip = (id: string) => tripRepository.getTrip(id);
-export const createTrip = (input: CreateTripInput) => tripRepository.createTrip(input);
-export const updateTrip = (id: string, input: UpdateTripInput) =>
-  tripRepository.updateTrip(id, input);
-export const deleteTrip = (id: string) => tripRepository.deleteTrip(id);
-export const deleteTrips = (ids: string[]) => tripRepository.deleteTrips(ids);
-export const deleteAllTrips = () => tripRepository.deleteAllTrips();
+export const getTrips = (userId: string) => tripRepository.getTrips(userId);
+export const getTrip = (userId: string, id: string) => tripRepository.getTrip(userId, id);
+export const createTrip = (userId: string, input: CreateTripInput) =>
+  tripRepository.createTrip(userId, input);
+export const updateTrip = (userId: string, id: string, input: UpdateTripInput) =>
+  tripRepository.updateTrip(userId, id, input);
+export const deleteTrip = (userId: string, id: string) => tripRepository.deleteTrip(userId, id);
+export const deleteTrips = (userId: string, ids: string[]) =>
+  tripRepository.deleteTrips(userId, ids);
+export const deleteAllTrips = (userId: string) => tripRepository.deleteAllTrips(userId);

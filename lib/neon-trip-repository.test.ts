@@ -8,6 +8,7 @@ import {
 import type { TripInput } from "@/types/trip";
 
 const id = "3c4c4eb1-eda0-4e6d-a1c0-dac71b890c52";
+const userId = "user-one";
 
 const databaseRow: Record<string, unknown> = {
   id,
@@ -68,54 +69,56 @@ describe("NeonTripRepository", () => {
 
   it("lists trips returned in database order", async () => {
     const query = queryReturning([databaseRow]);
-    const trips = await new NeonTripRepository(query).getTrips();
+    const trips = await new NeonTripRepository(query).getTrips(userId);
     expect(trips).toHaveLength(1);
     expect(trips[0]?.tripId).toBe("12CTT9");
     expect(query).toHaveBeenCalledOnce();
+    expect(query.mock.calls[0]?.slice(1)).toContain(userId);
   });
 
   it("returns null for malformed or missing ids", async () => {
     const query = queryReturning([]);
     const repository = new NeonTripRepository(query);
-    expect(await repository.getTrip("not-a-uuid")).toBeNull();
+    expect(await repository.getTrip(userId, "not-a-uuid")).toBeNull();
     expect(query).not.toHaveBeenCalled();
-    expect(await repository.getTrip(id)).toBeNull();
+    expect(await repository.getTrip(userId, id)).toBeNull();
     expect(query).toHaveBeenCalledOnce();
   });
 
   it("creates and updates trips through parameterized queries", async () => {
     const query = queryReturning([databaseRow]);
     const repository = new NeonTripRepository(query);
-    expect((await repository.createTrip(input)).netFare).toBe(1061.5);
-    expect((await repository.updateTrip(id, input))?.id).toBe(id);
+    expect((await repository.createTrip(userId, input)).netFare).toBe(1061.5);
+    expect((await repository.updateTrip(userId, id, input))?.id).toBe(id);
     expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls.every((call) => call.slice(1).includes(userId))).toBe(true);
   });
 
   it("returns null when an update finds no record", async () => {
     const query = queryReturning([]);
-    expect(await new NeonTripRepository(query).updateTrip(id, input)).toBeNull();
+    expect(await new NeonTripRepository(query).updateTrip(userId, id, input)).toBeNull();
   });
 
   it("deletes trips through a parameterized query", async () => {
     const query = queryReturning([{ id }]);
     const repository = new NeonTripRepository(query);
-    expect(await repository.deleteTrip(id)).toBe(true);
+    expect(await repository.deleteTrip(userId, id)).toBe(true);
     expect(query).toHaveBeenCalledOnce();
   });
 
   it("does not query for malformed delete ids and reports missing rows", async () => {
     const query = queryReturning([]);
     const repository = new NeonTripRepository(query);
-    expect(await repository.deleteTrip("not-a-uuid")).toBe(false);
+    expect(await repository.deleteTrip(userId, "not-a-uuid")).toBe(false);
     expect(query).not.toHaveBeenCalled();
-    expect(await repository.deleteTrip(id)).toBe(false);
+    expect(await repository.deleteTrip(userId, id)).toBe(false);
   });
 
   it("bulk deletes selected trips", async () => {
     const query = queryReturning([{ id }, { id: "55be9c11-42c6-455a-898e-2a1d9beef64d" }]);
     const repository = new NeonTripRepository(query);
     expect(
-      await repository.deleteTrips([
+      await repository.deleteTrips(userId, [
         id,
         id,
         "55be9c11-42c6-455a-898e-2a1d9beef64d",
@@ -127,13 +130,13 @@ describe("NeonTripRepository", () => {
 
   it("does not query when a selected deletion contains no valid ids", async () => {
     const query = queryReturning([]);
-    expect(await new NeonTripRepository(query).deleteTrips(["invalid"])).toBe(0);
+    expect(await new NeonTripRepository(query).deleteTrips(userId, ["invalid"])).toBe(0);
     expect(query).not.toHaveBeenCalled();
   });
 
   it("deletes every trip", async () => {
     const query = queryReturning([{ id }, { id: "55be9c11-42c6-455a-898e-2a1d9beef64d" }]);
-    expect(await new NeonTripRepository(query).deleteAllTrips()).toBe(2);
+    expect(await new NeonTripRepository(query).deleteAllTrips(userId)).toBe(2);
     expect(query).toHaveBeenCalledOnce();
   });
 

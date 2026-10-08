@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { TripReceipt } from "@/components/TripReceipt";
+import { requireUser } from "@/lib/auth-session";
 import { getTrip } from "@/lib/trip-repository";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,8 @@ interface TripPageProps {
 
 export default async function TripPage({ params }: TripPageProps) {
   const { id } = await params;
-  const trip = await getTrip(id);
+  const user = await requireUser(`/trips/${id}`);
+  const trip = await getTrip(user.id, id);
   if (!trip) notFound();
 
   return (
