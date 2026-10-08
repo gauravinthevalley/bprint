@@ -198,4 +198,24 @@ export class NeonTripRepository implements TripRepository {
     `;
     return rows.length > 0;
   }
+
+  async deleteTrips(ids: string[]): Promise<number> {
+    const validIds = [...new Set(ids)].filter((id) => uuidPattern.test(id));
+    if (validIds.length === 0) return 0;
+
+    const rows = await this.sql`
+      DELETE FROM trips
+      WHERE id = ANY(${validIds}::uuid[])
+      RETURNING id::text AS id
+    `;
+    return rows.length;
+  }
+
+  async deleteAllTrips(): Promise<number> {
+    const rows = await this.sql`
+      DELETE FROM trips
+      RETURNING id::text AS id
+    `;
+    return rows.length;
+  }
 }

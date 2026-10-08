@@ -3,6 +3,7 @@ import {
   formatCurrency,
   formatDistance,
   formatReceiptDate,
+  formatReceiptTime,
 } from "@/lib/formatting";
 import type { Trip } from "@/types/trip";
 
@@ -28,14 +29,14 @@ export function TripReceipt({ trip }: { trip: Trip }) {
   return (
     <article className="trip-receipt" aria-label={`Receipt for trip ${trip.tripId}`}>
       <header className="receipt-heading">
-        <h1>Trip Details</h1>
+        <h1>Passenger Receipt</h1>
         <p>
           Trip ID: <strong>#{trip.tripId}</strong>
         </p>
       </header>
 
       <section className="receipt-section">
-        <h2>Trip Info</h2>
+        <h2>Trip Details</h2>
         <p className="receipt-date">{formatReceiptDate(trip.date)}</p>
 
         <dl className="receipt-grid">
@@ -46,12 +47,13 @@ export function TripReceipt({ trip }: { trip: Trip }) {
           <DetailRow label="Passenger" value={trip.passengerName} />
           <DetailRow
             label="Pickup"
-            value={`${trip.pickupLocation}${trip.pickupTime ? ` — ${trip.pickupTime}` : ""}`}
+            value={`${trip.pickupLocation}${trip.pickupTime ? ` — ${formatReceiptTime(trip.pickupTime)}` : ""}`}
           />
           <DetailRow
             label="Drop Off"
-            value={`${trip.dropoffLocation}${trip.dropoffTime ? ` — ${trip.dropoffTime}` : ""}`}
+            value={`${trip.dropoffLocation}${trip.dropoffTime ? ` — ${formatReceiptTime(trip.dropoffTime)}` : ""}`}
           />
+          <DetailRow label="Distance" value={`${formatDistance(trip.distanceKm)} km`} />
         </dl>
         <p className="receipt-payment">Paid via – {trip.paymentMethod} Payment</p>
       </section>

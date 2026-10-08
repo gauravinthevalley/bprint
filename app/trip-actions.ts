@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { createTrip, deleteTrip, updateTrip } from "@/lib/trip-repository";
+import {
+  createTrip,
+  deleteAllTrips,
+  deleteTrip,
+  deleteTrips,
+  updateTrip,
+} from "@/lib/trip-repository";
 import { validateTripForm, type TripField } from "@/lib/trip-validation";
 
 export interface TripFormState {
@@ -61,6 +67,7 @@ export async function updateTripAction(
 
 export interface DeleteTripResult {
   success: boolean;
+  deletedCount?: number;
   error?: string;
 }
 
@@ -75,5 +82,32 @@ export async function deleteTripAction(id: string): Promise<DeleteTripResult> {
 
   revalidatePath("/trips");
   revalidatePath(`/trips/${id}`);
-  return { success: true };
+  return { success: true, deletedCount: 1 };
+}
+
+export async function deleteSelectedTripsAction(ids: string[]): Promise<DeleteTripResult> {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) {
+    return { success: false, error: "Select at least one trip to delete." };
+  }
+
+  try {
+    const deletedCount = await deleteTrips(uniqueIds);
+    revalidatePath("/trips");
+    return { success: true, deletedCount };
+  } catch (error) {
+    console.error("Unable to delete selected trips", error);
+    return { success: false, error: "The selected trips could not be deleted. Please try again." };
+  }
+}
+
+export async function deleteAllTripsAction(): Promise<DeleteTripResult> {
+  try {
+    const deletedCount = await deleteAllTrips();
+    revalidatePath("/trips");
+    return { success: true, deletedCount };
+  } catch (error) {
+    console.error("Unable to delete all trips", error);
+    return { success: false, error: "The trips could not be deleted. Please try again." };
+  }
 }

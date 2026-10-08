@@ -10,6 +10,15 @@ export function formatReceiptDate(value: string): string {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
+export function formatReceiptTime(value: string): string {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+  if (!match) return value;
+
+  const hour = Number(match[1]);
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${match[2]} ${hour < 12 ? "AM" : "PM"}`;
+}
+
 export function formatListDate(value: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return value;

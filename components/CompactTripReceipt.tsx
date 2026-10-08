@@ -3,6 +3,7 @@ import {
   formatCurrency,
   formatDistance,
   formatReceiptDate,
+  formatReceiptTime,
 } from "@/lib/formatting";
 import type { Trip } from "@/types/trip";
 
@@ -28,7 +29,7 @@ export function CompactTripReceipt({ trip }: { trip: Trip }) {
   return (
     <article className="six-up-receipt" aria-label={`Receipt for trip ${trip.tripId}`}>
       <header className="compact-receipt-heading">
-        <h2>Trip Details</h2>
+        <h2>Passenger Receipt</h2>
         <p>Trip ID: #{trip.tripId}</p>
       </header>
 
@@ -42,11 +43,11 @@ export function CompactTripReceipt({ trip }: { trip: Trip }) {
           <CompactDetail label="Passenger" value={trip.passengerName} />
           <CompactDetail
             label="Pickup"
-            value={`${trip.pickupLocation}${trip.pickupTime ? ` — ${trip.pickupTime}` : ""}`}
+            value={`${trip.pickupLocation}${trip.pickupTime ? ` — ${formatReceiptTime(trip.pickupTime)}` : ""}`}
           />
           <CompactDetail
             label="Drop Off"
-            value={`${trip.dropoffLocation}${trip.dropoffTime ? ` — ${trip.dropoffTime}` : ""}`}
+            value={`${trip.dropoffLocation}${trip.dropoffTime ? ` — ${formatReceiptTime(trip.dropoffTime)}` : ""}`}
           />
         </dl>
         <div className="compact-meta">

@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { deleteTripAction } from "@/app/trip-actions";
+import {
+  deleteAllTripsAction,
+  deleteSelectedTripsAction,
+  deleteTripAction,
+} from "@/app/trip-actions";
 import { formatCurrency, formatDistance, formatListDate } from "@/lib/formatting";
 import type { Trip } from "@/types/trip";
 
@@ -14,6 +18,7 @@ export function TripList({ trips }: { trips: Trip[] }) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [bulkDeleteMode, setBulkDeleteMode] = useState<"selected" | "all" | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletePending, startDeleteTransition] = useTransition();
   const selectAllRef = useRef<HTMLInputElement>(null);
@@ -78,13 +83,33 @@ export function TripList({ trips }: { trips: Trip[] }) {
     });
   }
 
+  function confirmBulkDelete() {
+    if (!bulkDeleteMode) return;
+    const mode = bulkDeleteMode;
+    const ids = Array.from(selectedIds);
+    setDeleteError(null);
+
+    startDeleteTransition(async () => {
+      const result =
+        mode === "all" ? await deleteAllTripsAction() : await deleteSelectedTripsAction(ids);
+      if (!result.success) {
+        setDeleteError(result.error ?? "The trips could not be deleted.");
+        return;
+      }
+
+      setSelectedIds(new Set());
+      setBulkDeleteMode(null);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-medium text-slate-700" aria-live="polite">
           {selectedIds.size} selected
         </p>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <button
             type="button"
             onClick={printSelected}
@@ -99,8 +124,58 @@ export function TripList({ trips }: { trips: Trip[] }) {
           >
             Print All
           </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setDeleteError(null);
+              setConfirmingDeleteId(null);
+              setBulkDeleteMode("selected");
+            }}
+            disabled={selectedIds.size === 0}
+            className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Delete Selected
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDeleteError(null);
+              setConfirmingDeleteId(null);
+              setBulkDeleteMode("all");
+            }}
+            className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800"
+          >
+            Delete All
+          </button>
         </div>
       </div>
+      {bulkDeleteMode && (
+        <div className="flex flex-col gap-3 border-b border-red-200 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-medium text-red-900">
+            {bulkDeleteMode === "all"
+              ? `Delete all ${trips.length} trips? This cannot be undone.`
+              : `Delete ${selectedIds.size} selected ${selectedIds.size === 1 ? "trip" : "trips"}? This cannot be undone.`}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setBulkDeleteMode(null)}
+              disabled={deletePending}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmBulkDelete}
+              disabled={deletePending}
+              className="rounded-md bg-red-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+            >
+              {deletePending ? "Deleting…" : "Confirm Delete"}
+            </button>
+          </div>
+        </div>
+      )}
       {deleteError && (
         <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {deleteError}
@@ -194,6 +269,7 @@ export function TripList({ trips }: { trips: Trip[] }) {
                         type="button"
                         onClick={() => {
                           setDeleteError(null);
+                          setBulkDeleteMode(null);
                           setConfirmingDeleteId(trip.id);
                         }}
                         className="font-semibold text-red-700 hover:underline"

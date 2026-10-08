@@ -6,6 +6,7 @@ import {
   calculateReceiptNetFare,
   formatCurrency,
   formatReceiptDate,
+  formatReceiptTime,
 } from "@/lib/formatting";
 
 describe("formatting", () => {
@@ -16,6 +17,14 @@ describe("formatting", () => {
 
   it("formats ISO dates as DD/MM/YYYY without timezone conversion", () => {
     expect(formatReceiptDate("2026-03-23")).toBe("23/03/2026");
+  });
+
+  it("formats receipt times using a 12-hour clock", () => {
+    expect(formatReceiptTime("07:16")).toBe("7:16 AM");
+    expect(formatReceiptTime("21:16")).toBe("9:16 PM");
+    expect(formatReceiptTime("00:05")).toBe("12:05 AM");
+    expect(formatReceiptTime("12:00")).toBe("12:00 PM");
+    expect(formatReceiptTime("invalid")).toBe("invalid");
   });
 
   it("calculates distance fare from the base fare and per-kilometre rate", () => {

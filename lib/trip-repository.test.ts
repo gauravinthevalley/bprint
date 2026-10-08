@@ -101,6 +101,19 @@ describe("JsonTripRepository", () => {
     expect(await setup.repository.deleteTrip(created.id)).toBe(false);
     expect(JSON.parse(await readFile(setup.filePath, "utf8"))).toEqual([]);
   });
+
+  it("deletes selected trips and then all remaining trips", async () => {
+    const setup = await repository();
+    const first = await setup.repository.createTrip(input);
+    const second = await setup.repository.createTrip(input);
+    const third = await setup.repository.createTrip(input);
+
+    expect(await setup.repository.deleteTrips([first.id, third.id, first.id, "missing"])).toBe(2);
+    expect((await setup.repository.getTrips()).map((trip) => trip.id)).toEqual([second.id]);
+    expect(await setup.repository.deleteAllTrips()).toBe(1);
+    expect(await setup.repository.getTrips()).toEqual([]);
+    expect(await setup.repository.deleteAllTrips()).toBe(0);
+  });
 });
 
 describe("repository selection", () => {

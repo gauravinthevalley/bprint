@@ -111,6 +111,32 @@ describe("NeonTripRepository", () => {
     expect(await repository.deleteTrip(id)).toBe(false);
   });
 
+  it("bulk deletes selected trips", async () => {
+    const query = queryReturning([{ id }, { id: "55be9c11-42c6-455a-898e-2a1d9beef64d" }]);
+    const repository = new NeonTripRepository(query);
+    expect(
+      await repository.deleteTrips([
+        id,
+        id,
+        "55be9c11-42c6-455a-898e-2a1d9beef64d",
+        "not-a-uuid",
+      ]),
+    ).toBe(2);
+    expect(query).toHaveBeenCalledOnce();
+  });
+
+  it("does not query when a selected deletion contains no valid ids", async () => {
+    const query = queryReturning([]);
+    expect(await new NeonTripRepository(query).deleteTrips(["invalid"])).toBe(0);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("deletes every trip", async () => {
+    const query = queryReturning([{ id }, { id: "55be9c11-42c6-455a-898e-2a1d9beef64d" }]);
+    expect(await new NeonTripRepository(query).deleteAllTrips()).toBe(2);
+    expect(query).toHaveBeenCalledOnce();
+  });
+
   it("maps legacy rows without a fare per KM", () => {
     expect(mapTripRow({ ...databaseRow, farePerKm: null, netFare: "2185.00" }).farePerKm).toBeNull();
   });

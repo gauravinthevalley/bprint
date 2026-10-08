@@ -12,6 +12,8 @@ export interface TripRepository {
   createTrip(input: CreateTripInput): Promise<Trip>;
   updateTrip(id: string, input: UpdateTripInput): Promise<Trip | null>;
   deleteTrip(id: string): Promise<boolean>;
+  deleteTrips(ids: string[]): Promise<number>;
+  deleteAllTrips(): Promise<number>;
 }
 
 export class JsonTripRepository implements TripRepository {
@@ -79,6 +81,27 @@ export class JsonTripRepository implements TripRepository {
       trips.splice(index, 1);
       await this.writeTrips(trips);
       return true;
+    });
+  }
+
+  async deleteTrips(ids: string[]): Promise<number> {
+    const idsToDelete = new Set(ids);
+    if (idsToDelete.size === 0) return 0;
+
+    return this.withWriteLock(async () => {
+      const trips = await this.readTrips();
+      const remainingTrips = trips.filter((trip) => !idsToDelete.has(trip.id));
+      const deletedCount = trips.length - remainingTrips.length;
+      if (deletedCount > 0) await this.writeTrips(remainingTrips);
+      return deletedCount;
+    });
+  }
+
+  async deleteAllTrips(): Promise<number> {
+    return this.withWriteLock(async () => {
+      const trips = await this.readTrips();
+      if (trips.length > 0) await this.writeTrips([]);
+      return trips.length;
     });
   }
 
@@ -172,3 +195,5 @@ export const createTrip = (input: CreateTripInput) => tripRepository.createTrip(
 export const updateTrip = (id: string, input: UpdateTripInput) =>
   tripRepository.updateTrip(id, input);
 export const deleteTrip = (id: string) => tripRepository.deleteTrip(id);
+export const deleteTrips = (ids: string[]) => tripRepository.deleteTrips(ids);
+export const deleteAllTrips = () => tripRepository.deleteAllTrips();
